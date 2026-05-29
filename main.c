@@ -46,7 +46,8 @@ static inline void set_window_text(char* const wtext, const bool lgv, const bool
 
 int main(int argc, char* argv[])
 {
-	--argc; ++argv; // strip program name
+	--argc; ++argv; // strip program name (for CLAP_* macros)
+
 	if (argc == 1 && strcasecmp(argv[0],"-help") == 0) {
 		help_message(TBKT);
 		return EXIT_SUCCESS;
@@ -61,15 +62,14 @@ int main(int argc, char* argv[])
 	CLAP_VARG(T,          double,   TBKT,             "Temperature (default: BKT critical value)");
 	CLAP_CARG(Tinc,       double,   0.05,             "Temperature increment for interactive adjustment");
 	CLAP_CARG(dt,         double,   0.01,             "Langevin Euler-Maruyama integration step size");
-	CLAP_CARG(scrx,       int,      1364,             "Raylib window width  (pixels)");
-	CLAP_CARG(scry,       int,      0,                "Raylib window height (pixels)");
+	CLAP_CARG(scr,        int,      1364,             "Raylib window size (pixels)");
 	CLAP_CARG(fps,        int,      60,               "Raylib target (maximum) frames per second");
-	CLAP_CARG(ascale,     float,    0.8f,             "Raylib quiver plot arrow shaft size");
-	CLAP_CARG(lthick,     float,    1.0f,             "Raylib quiver plot arrow shaft thickness");
-	CLAP_CARG(ahead,      float,    0.2f,             "Raylib quiver plot arrow head size");
+	CLAP_CARG(alength,    float,    0.8f,             "Raylib quiver plot arrow shaft length");
+	CLAP_CARG(athick,     float,    1.0f,             "Raylib quiver plot arrow shaft thickness");
+	CLAP_CARG(aheads,     float,    0.2f,             "Raylib quiver plot arrow head size");
 	CLAP_CARG(hangle,     float,    0.5f,             "Raylib quiver plot arrow head angle (radians)");
 	CLAP_CARG(carrow,     bool,     true,             "Raylib quiver plot arrow - center at lattice site");
-	CLAP_CARG(vrad,       float,    3.5f,             "Raylib vortex circle radius (pixels)");
+	CLAP_CARG(vcrad,      float,    3.5f,             "Raylib vortex circle radius (pixels)");
 	CLAP_CARG(fsize,      int,      20,               "Raylib font size");
 	CLAP_CARG(rseed,      ulong,    0,                "PRNG seed (0 for random random seed)");
 
@@ -106,24 +106,36 @@ int main(int argc, char* argv[])
 	// Gradient vector buffer
 	vec_t dv[N];
 
-	// Raylib configuration
+	// Spin or spin-gradient
+	const vec_t* vf = (grad ? dv : v);
 
-	const int ppcx = scrx/(L+1);                      // pixels per cell x
-	const int ppcy = (scry == 0 ? ppcx : scry/(L+1)); // pixels per cell y (if zero set equal to ppcx)
+	// Raylib configuration (screen metrics, colours, initialisation, etc.)
 
-	const int   yoff = 20; // extra vertical pixels for text
-	const float yo   = (float)yoff;
+	const int ippc = scr/(L+1); // pixels per cell x
 
-	const int wx = (L+1)*ppcx;        // window x (pixels)
-	const int wy = (L+1)*ppcx + yoff; // window y (pixels)
+	const int   iyoff = 20; // extra vertical pixels for text
+	const float yoff  = (float)iyoff;
 
-	const float fppcx = (float)ppcx; // pixels per cell x
-	const float fppcy = (float)ppcy; // pixels per cell y
+	const int wx = (L+1)*ippc;         // window x (pixels)
+	const int wy = (L+1)*ippc + iyoff; // window y (pixels)
+
+	const float ppc = (float)ippc;     // pixels per cell x
+
+	const float asize = alength*ppc;   // scaled arrow length
+	const float ahead = aheads*ppc;    // scaled arrow head size
+
+	float latx[N], laty[N]; // lattice coordinates
+	for (int i = 0; i < N; ++i) latx[i] = ppc*((float)(i/L)+1.0f);
+	for (int i = 0; i < N; ++i) laty[i] = ppc*((float)(i%L)+1.0f) + yoff;
 
 	const Color lcol = ColorFromHSV(360.0f, 0.0f, 0.0f); // arrow line colour
 	const Color vcol = ColorFromHSV(  0.0f, 1.0f, 1.0f); // vortex colour
 	const Color acol = ColorFromHSV(255.0f, 1.0f, 1.0f); // anti-vortex colour
 	const Color tcol = ColorFromHSV(127.0f, 0.5f, 0.0f); // text colour
+
+	const float vrad = (L < 47 ? 1.25f*vcrad : vcrad);   // bit of a hack :-O
+
+	char wtext[WTEXTMAX+1];                              // window text buffer
 
 	// Initialise Raylib window
 	SetConfigFlags(FLAG_MSAA_4X_HINT);
@@ -138,11 +150,11 @@ int main(int argc, char* argv[])
 
 	// Main animation loop
 
-	char wtext[WTEXTMAX+1]; // window text buffer
-    size_t itr = 0;
-    bool paused = false;
-	int vnum = 0;
-    while (!WindowShouldClose()) {
+    size_t itr    = 0;
+    bool   paused = false;
+	int    vnum   = 0;
+
+    while (!WindowShouldClose()) { // ESC key exits loop
 
 		BeginDrawing();
 
@@ -186,14 +198,14 @@ int main(int argc, char* argv[])
 			for (int i = 0; i < N; ++i) {
 
 				// lattice site coordinates (pixels)
-				const float x = fppcx*((float)(i/L) + 1.0f);
-				const float y = fppcy*((float)(i%L) + 1.0f) + yo;
+				const float x = latx[i];
+				const float y = laty[i];
 
 				// arrow (scaled spin/gradient vector; pixels)
-				const float vx = ascale*fppcx*(float)(grad ? dv[i].x : v[i].x);
-				const float vy = ascale*fppcy*(float)(grad ? dv[i].y : v[i].y);
+				const float vx = asize*(float)vf[i].x;
+				const float vy = asize*(float)vf[i].y;
 
-				// arrow origin (pixels)
+				// arrow origin (pixels) - centre on lattice site if requested
 				const float ox = (carrow ? x - vx/2.0f : x);
 				const float oy = (carrow ? y - vy/2.0f : y);
 
@@ -205,13 +217,13 @@ int main(int argc, char* argv[])
 				const float angle = atan2f(vy,vx);
 
 				// arrowhead vectors (triangle; third vertex is terminus of spin vector)
-				const float ah1x = tx-ahead*fppcx*cosf(angle+hangle);
-				const float ah1y = ty-ahead*fppcx*sinf(angle+hangle);
-				const float ah2x = tx-ahead*fppcx*cosf(angle-hangle);
-				const float ah2y = ty-ahead*fppcx*sinf(angle-hangle);
+				const float ah1x = tx-ahead*cosf(angle+hangle);
+				const float ah1y = ty-ahead*sinf(angle+hangle);
+				const float ah2x = tx-ahead*cosf(angle-hangle);
+				const float ah2y = ty-ahead*sinf(angle-hangle);
 
 				// draw the arrow shaft
-				DrawLineEx((Vector2){ox,oy},(Vector2){tx,ty},lthick,lcol);
+				DrawLineEx((Vector2){ox,oy},(Vector2){tx,ty},athick,lcol);
 
 				// draw the arrow head
 				DrawTriangle((Vector2){tx,ty},(Vector2){ah1x,ah1y},(Vector2){ah2x,ah2y},lcol);
@@ -224,9 +236,9 @@ int main(int argc, char* argv[])
 				const int i = p->vidx; // lattice site index
 				const int w = p->wnum; // winding number (±1)
 
-				// circle centre (pixels)
-				const float x = fppcx*((float)(i/L) + 1.5f); // +1.5 to put in centre of plaque
-				const float y = fppcy*((float)(i%L) + 1.5f) + yo;
+				// circle centre (pixels)  +0.5*ppc  to put in centre of plaque
+				const float x = latx[i] + 0.5f*ppc;
+				const float y = laty[i] + 0.5f*ppc;
 				DrawCircleV((Vector2){x,y},vrad,w > 0 ? acol : vcol);
 			}
 
@@ -247,12 +259,13 @@ int main(int argc, char* argv[])
 				case KEY_G: // toggle spin/spin-gradient field
 					grad = !grad;
 					phase_grad(N,v,nbr,dv);
+					vf = (grad ? dv : v); // the vector field to animate (spin or spin-gradient
 					break;
 				case KEY_I: // re-initialise lattice to uniform random
 					uvec_uniform(N,v,&rng);
 					if (lgv) uvec2angle(N,h,v); // spin angle form needed for subsequent Langevin_update()
 					break;
-				case KEY_SPACE:
+				case KEY_SPACE: // pause animation
 					paused = !paused;
 					break;
 				case KEY_LEFT: // decrease updates per iteration (unless at zero)
@@ -293,6 +306,8 @@ int main(int argc, char* argv[])
 
 		EndDrawing();
 	}
+
+	// Clean up
 
 	UnloadFont(font);
     CloseWindow();
