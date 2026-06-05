@@ -258,7 +258,7 @@ int main(int argc, char* argv[])
 					break;
 				case KEY_G: // toggle spin/spin-gradient field
 					grad = !grad;
-					phase_grad(N,v,nbr,dv);
+					if (grad) phase_grad(N,v,nbr,dv);
 					vf = (grad ? dv : v); // the vector field to animate (spin or spin-gradient
 					break;
 				case KEY_I: // re-initialise lattice to uniform random
