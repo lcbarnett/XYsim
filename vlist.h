@@ -1,7 +1,7 @@
 #ifndef VLIST_H
 #define VLIST_H
 
-// A minimal "vortex list" queue (FILO)
+// A minimal "vortex list" (FILO)
 
 typedef struct vlist_node {
 	int                wnum; // winding number
