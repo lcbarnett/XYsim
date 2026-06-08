@@ -150,9 +150,10 @@ int main(int argc, char* argv[])
 
 	// Main animation loop
 
-    size_t itr    = 0;
-    bool   paused = false;
-	int    vnum   = 0;
+    size_t itr     = 0;
+    bool   paused  = false;
+    bool   display = true;
+	int    vnum    = 0;
 
     while (!WindowShouldClose()) { // ESC key exits loop
 
@@ -181,6 +182,10 @@ int main(int argc, char* argv[])
 					for (int u = 0; u < upf; ++u) Wolff_update(N,v,nbr,cluster,stack,beta,&rng);
 				}
 			}
+			++itr;
+		}
+
+		if (display) {
 
 			// calculate phase gradient if requested
 			if (grad) phase_grad(N,v,nbr,dv);
@@ -245,7 +250,7 @@ int main(int argc, char* argv[])
 			// free vortex list
 			vlist_free(vlist);
 
-			++itr;
+			if (paused) display = false;
 		}
 
 		// process keypresses
@@ -259,13 +264,16 @@ int main(int argc, char* argv[])
 				case KEY_G: // toggle spin/spin-gradient field
 					grad = !grad;
 					vf = (grad ? dv : v); // the vector field to animate (spin or spin-gradient
+					display = true;
 					break;
 				case KEY_I: // re-initialise lattice to uniform random
 					uvec_uniform(N,v,&rng);
 					if (lgv) uvec2angle(N,h,v); // spin angle form needed for subsequent Langevin_update()
+					display = true;
 					break;
 				case KEY_SPACE: // pause animation
 					paused = !paused;
+					display = !paused;
 					break;
 				case KEY_LEFT: // decrease updates per iteration (unless at zero)
 					if (upf > 1) --upf; else fprintf(stderr,"*** Cannot reduce updates-per-frame further!\n");
@@ -293,6 +301,7 @@ int main(int argc, char* argv[])
 				default:
 					fprintf(stderr,"*** Unhandled key\n");
 			}
+
 			set_window_text(wtext,lgv,grad,T,upf,itr,vnum);
 			DrawRectangleV((Vector2){0.0f,0.0f},(Vector2){1000.0f,25.0f},WHITE); // clear text drawing space
 			DrawTextEx(font,wtext,(Vector2){5.0f,3.0f},(float)fsize,1.0f,tcol);
