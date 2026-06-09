@@ -241,7 +241,7 @@ int main(int argc, char* argv[])
 				const int i = p->vidx; // lattice site index
 				const int w = p->wnum; // winding number (±1)
 
-				// circle centre (pixels)  +0.5*ppc  to put in centre of plaque
+				// circle centre (pixels; +0.5*ppc  to put in centre of plaque)
 				const float x = latx[i] + 0.5f*ppc;
 				const float y = laty[i] + 0.5f*ppc;
 				DrawCircleV((Vector2){x,y},vrad,w > 0 ? acol : vcol);
