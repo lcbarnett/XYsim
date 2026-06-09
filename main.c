@@ -125,8 +125,8 @@ int main(int argc, char* argv[])
 	const float ahead = aheads*ppc;    // scaled arrow head size
 
 	float latx[N], laty[N]; // lattice coordinates
-	for (int i = 0; i < N; ++i) latx[i] = ppc*((float)(i/L)+1.0f);
-	for (int i = 0; i < N; ++i) laty[i] = ppc*((float)(i%L)+1.0f) + yoff;
+	for (int i = 0; i < N; ++i) latx[i] = ppc*(float)((i/L)+1);
+	for (int i = 0; i < N; ++i) laty[i] = ppc*(float)((i%L)+1) + yoff;
 
 	const Color lcol = ColorFromHSV(360.0f, 0.0f, 0.0f); // arrow line colour
 	const Color vcol = ColorFromHSV(  0.0f, 1.0f, 1.0f); // vortex colour
